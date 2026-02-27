@@ -10,9 +10,43 @@ Estados: [Δu, Δw, Δq, Δθ] - perturbações em relação ao trim
 """
 
 import numpy as np
-import scipy.linalg as la
 import matplotlib.pyplot as plt
+from dataclasses import asdict, dataclass
 from math import sqrt, pi, cos, sin, radians, degrees
+
+
+@dataclass(frozen=True)
+class AircraftData:
+    """Parâmetros físicos e de trim da aeronave."""
+
+    name: str
+    mass: float
+    S: float
+    MAC: float
+    Iy: float
+    velocity: float
+    rho: float
+    CL_trim: float
+    CD_trim: float
+    theta_trim: float
+
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class AerodynamicCoefficients:
+    """Coeficientes adimensionais usados no modelo longitudinal."""
+
+    CL_alpha: float
+    CD_alpha: float
+    CDu: float
+    Cm_alpha: float
+    Cm_alpha_dot: float
+    Cmq: float
+
+    def to_dict(self):
+        return asdict(self)
 
 class LongitudinalStabilityEtkin:
     def __init__(self, aircraft_data):
@@ -124,7 +158,7 @@ class LongitudinalStabilityEtkin:
         """
         Analisa autovalores e classifica modos longitudinais
         """
-        eigenvalues, eigenvectors = la.eig(A)
+        eigenvalues, eigenvectors = np.linalg.eig(A)
         
         print("AUTOVALORES DA MATRIZ A:")
         for i, val in enumerate(eigenvalues):
@@ -478,7 +512,7 @@ class LongitudinalStabilityEtkin:
         plt.tight_layout()
         plt.show()
     
-    def complete_analysis(self, coefficients):
+    def complete_analysis(self, coefficients, plot=True):
         """
         Executa análise completa seguindo Etkin
         """
@@ -494,8 +528,9 @@ class LongitudinalStabilityEtkin:
         # Análise detalhada
         self.print_detailed_analysis(modes)
         
-        # Plotar resultados
-        self.plot_comprehensive_analysis(eigenvalues, modes)
+        # Plotar resultados (opcional para facilitar testes e automações)
+        if plot:
+            self.plot_comprehensive_analysis(eigenvalues, modes)
         
         return {
             'derivatives': derivatives,
@@ -509,24 +544,24 @@ class LongitudinalStabilityEtkin:
 # EXEMPLO VALIDADO - NAVION
 # ==========================================
 
-def navion_etkin_example():
+def navion_etkin_example(plot=True):
     """
     Exemplo do Navion usando convenção correta do Etkin
     """
     
     # Dados Navion (referência clássica)
-    navion_data = {
-        'name': 'AJ25-A',
-        'mass': 9.5,      # kg
-        'S': 1.041,          # m²
-        'MAC': 0.417,         # m 
-        'Iy': 0.67,        # kg⋅m²
-        'velocity': 12.5,    # m/s
-        'rho': 1.225,        # kg/m³
-        'CL_trim': 1.2378,
-        'CD_trim': 0.05,
-        'theta_trim': 0.8  #degrees
-    }
+    navion_data = AircraftData(
+        name='AJ25-A',
+        mass=9.5,      # kg
+        S=1.041,       # m²
+        MAC=0.417,     # m
+        Iy=0.67,       # kg⋅m²
+        velocity=12.5, # m/s
+        rho=1.225,     # kg/m³
+        CL_trim=1.2378,
+        CD_trim=0.05,
+        theta_trim=0.8,
+    )
     
     #Parâmetros da empenagem horizontal
     etaEH = 0.96        # Eficiência da empenagem horizontal (típico 0.8-0.95)
@@ -535,42 +570,36 @@ def navion_etkin_example():
     lh = 1.15            # Distância do CG à empenagem horizontal (m) - estimativa típica para Navion
     CLa = 1.3391
     AR = 6.002
-    Cmq_calculated = -2 * etaEH * CLaEH * Veh * (lh / navion_data['MAC'])
-    d_eta = (2*CLa)/(pi*AR)
+    Cmq_calculated = -2 * etaEH * CLaEH * Veh * (lh / navion_data.MAC)
+    _d_eta = (2*CLa)/(pi*AR)
     
     # Coeficientes ajustados para Etkin
-    navion_coefficients = {
-        'CL_alpha': 1.3391,       # 1/rad             
-        'CD_alpha': 0.35,      # 1/rad 
-        'CDu': 0.1303,           
-        'Cm_alpha': -0.741,     # 1/rad (negativo = estável)
-        'Cm_alpha_dot': -4.2,  # adimensional
-        'Cmq':  Cmq_calculated          # negativo = amortecimento
-    }
+    navion_coefficients = AerodynamicCoefficients(
+        CL_alpha=1.3391,    # 1/rad
+        CD_alpha=0.35,      # 1/rad
+        CDu=0.1303,
+        Cm_alpha=-0.741,    # 1/rad (negativo = estável)
+        Cm_alpha_dot=-4.2,  # adimensional
+        Cmq=Cmq_calculated, # negativo = amortecimento
+    )
     
     print("EXECUTANDO ANÁLISE COM CORREÇÃO ETKIN...")
     print("=" * 60)
     
     # Executar análise
-    analyzer = LongitudinalStabilityEtkin(navion_data)
-    results = analyzer.complete_analysis(navion_coefficients)
+    analyzer = LongitudinalStabilityEtkin(navion_data.to_dict())
+    results = analyzer.complete_analysis(navion_coefficients.to_dict(), plot=plot)
     
     return analyzer, results
 
 def main():
     """Função principal"""
-    try:
-        analyzer, results = navion_etkin_example()
-        
-        print("\n" + "="*70)
-        print("✅ ANÁLISE CONCLUÍDA COM SUCESSO!")
-        print("Código corrigido seguindo convenção do Etkin")
-        print("="*70)
-        
-    except Exception as e:
-        print(f"❌ Erro na análise: {e}")
-        import traceback
-        traceback.print_exc()
+    analyzer, results = navion_etkin_example()
+
+    print("\n" + "="*70)
+    print("✅ ANÁLISE CONCLUÍDA COM SUCESSO!")
+    print("Código corrigido seguindo convenção do Etkin")
+    print("="*70)
 
 if __name__ == "__main__":
     main()
