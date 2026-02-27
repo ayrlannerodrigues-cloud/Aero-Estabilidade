@@ -1,0 +1,18 @@
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Editor/IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Generated files
+*.csv # To ignore all CSV files, especially generated ones like coeficientes_detalhados.csv
+*.db  # To ignore database files, such as aircraft_stability.db
